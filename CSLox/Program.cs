@@ -12,7 +12,7 @@ namespace CSLox
         {
             if (args.Length > 1)
             {
-                Console.WriteLine("UsageL cslox [script]");
+                Console.Error.WriteLine("Usage: cslox [script]");
                 return (int)ExitCodes.INVALID_ARGUMENT;
             }
             else if (args.Length == 1)
