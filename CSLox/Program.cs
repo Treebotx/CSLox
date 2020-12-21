@@ -17,29 +17,29 @@ namespace CSLox
             }
             else if (args.Length == 1)
             {
-                runFile(args[0]);
+                RunFile(args[0]);
             }
             else
             {
-                runPrompt();
+                RunPrompt();
             }
 
             return (int)ExitCodes.SUCCESS;
         }
 
-        private static void runPrompt()
+        private static void RunPrompt()
         {
             for (; ; )
             {
                 Console.Write("> ");
                 var line = Console.ReadLine();
                 if (string.IsNullOrEmpty(line)) break;
-                run(line);
+                Run(line);
                 errorReporter.Reset();
             }
         }
 
-        private static void runFile(string path)
+        private static void RunFile(string path)
         {
             if (path == null) throw new ArgumentNullException();
             if (path.Length == 0) throw new ArgumentException();
@@ -50,20 +50,23 @@ namespace CSLox
                 file = streamReader.ReadToEnd();
             }
 
-            run(file);
+            Run(file);
 
             if (errorReporter.HadError) Environment.Exit((int)ExitCodes.ERROR_IN_CODE);
         }
 
-        private static void run(string source)
+        private static void Run(string source)
         {
             Scanner scanner = new Scanner(source, errorReporter);
             List<Token> tokens = scanner.ScanTokens();
 
-            foreach (var token in tokens)
-            {
-                Console.WriteLine(token);
-            }
+            Parser parser = new Parser(tokens, errorReporter);
+            Expr expr = parser.Parse();
+
+            //if (errorReporter.HadError) return;
+            if (expr == null) return;
+
+            Console.WriteLine(new AstPrinter().Print(expr));
         }
     }
 }

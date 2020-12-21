@@ -1,12 +1,10 @@
 ﻿using Moq;
-using System;
 using Xunit;
 
 namespace CSLox.Tests
 {
     public class ScannerTests
     {
-        
         static Mock<IErrorReporter> erMock = new Mock<IErrorReporter>();
         static IErrorReporter _errorReporter = erMock.Object;
 
