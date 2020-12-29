@@ -7,6 +7,7 @@ namespace CSLox
     class Program
     {
         static readonly IErrorReporter errorReporter = new ErrorReporter();
+        private static Interpreter interpreter = new Interpreter(errorReporter);
 
         static int Main(string[] args)
         {
@@ -53,6 +54,7 @@ namespace CSLox
             Run(file);
 
             if (errorReporter.HadError) Environment.Exit((int)ExitCodes.ERROR_IN_CODE);
+            if (errorReporter.HadRuntimeError) Environment.Exit((int)ExitCodes.RUNTIME_ERROR);
         }
 
         private static void Run(string source)
@@ -66,7 +68,8 @@ namespace CSLox
             //if (errorReporter.HadError) return;
             if (expr == null) return;
 
-            Console.WriteLine(new AstPrinter().Print(expr));
+            //Console.WriteLine(new AstPrinter().Print(expr));
+            interpreter.Interpret(expr);
         }
     }
 }

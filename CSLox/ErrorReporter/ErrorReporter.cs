@@ -4,7 +4,8 @@ namespace CSLox
 {
     public class ErrorReporter : IErrorReporter
     {
-        public bool HadError { get; private set; }
+        public bool HadError { get; private set; } = false;
+        public bool HadRuntimeError { get; private set; } = false;
 
         public void Error(int line, string message)
         {
@@ -23,9 +24,16 @@ namespace CSLox
             }
         }
 
+        public void RuntimeError(LoxRuntimeErrorException error)
+        {
+            Console.Error.WriteLine($"{error.Message}\n[line {error.ErrorToken.Line}]");
+            HadRuntimeError = true;
+        }
+
         public void Reset()
         {
             HadError = false;
+            HadRuntimeError = false;
         }
 
         private void Report(int line, string where, string message)

@@ -40,7 +40,7 @@ namespace CSLox
             {
                 return Expression();
             }
-            catch (ParseErrorException error)
+            catch (LoxParseErrorException error)
             {
                 return null;
             }
@@ -220,10 +220,10 @@ namespace CSLox
             }
         }
 
-        private ParseErrorException Error(Token token, string message)
+        private LoxParseErrorException Error(Token token, string message)
         {
             _errorReporter.Error(token, message);
-            return new ParseErrorException();
+            return new LoxParseErrorException();
         }
     }
 }

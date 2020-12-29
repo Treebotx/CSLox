@@ -1,0 +1,154 @@
+﻿using System;
+
+namespace CSLox
+{
+    public class Interpreter : Expr.IVisitor<object>
+    {
+        private IErrorReporter _errorReporter;
+
+        public Interpreter(IErrorReporter errorReporter)
+        {
+            _errorReporter = errorReporter;
+        }
+
+         public void Interpret(Expr expr)
+        {
+            try
+            {
+                object value = Evaluate(expr);
+                Console.WriteLine(Stringify(value));
+            }
+            catch (LoxRuntimeErrorException error)
+            {
+                _errorReporter.RuntimeError(error);
+            }
+        }
+
+        public object VisitBinaryExpr(Expr.Binary expr)
+        {
+            object left = Evaluate(expr.left);
+            object right = Evaluate(expr.right);
+
+            switch (expr.oper.Type)
+            {
+                case TokenType.GREATER:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left > (double)right;
+                case TokenType.GREATER_EQUAL:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left >= (double)right;
+                case TokenType.LESS:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left < (double)right;
+                case TokenType.LESS_EQUAL:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left <= (double)right;
+                case TokenType.BANG_EQUAL:
+                    return !IsEqual(left, right);
+                case TokenType.EQUAL_EQUAL:
+                    return IsEqual(left, right);
+                case TokenType.MINUS:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left - (double)right;
+                case TokenType.PLUS:
+                    if (left is double && right is double)
+                    {
+                        return (double)left + (double)right;
+                    }
+
+                    if (left is string || right is string)
+                    {
+                        return left.ToString() + right.ToString();
+                    }
+                    throw new LoxRuntimeErrorException(expr.oper,
+                        "Operands must be two numbers or two strings.");
+                case TokenType.SLASH:
+                    CheckNumberOperands(expr.oper, left, right);
+                    if ((double)right == 0d) throw new LoxRuntimeErrorException(expr.oper, "Attempted divide by zero.");
+                    return (double)left / (double)right;
+                case TokenType.STAR:
+                    CheckNumberOperands(expr.oper, left, right);
+                    return (double)left * (double)right;
+            }
+
+            // Unreachable
+            return null;
+        }
+
+        public object VisitGroupingExpr(Expr.Grouping expr)
+        {
+            return Evaluate(expr.expression);
+        }
+
+        public object VisitLiteralExpr(Expr.Literal expr)
+        {
+            return expr.value;
+        }
+
+        public object VisitUnaryExpr(Expr.Unary expr)
+        {
+            object right = Evaluate(expr.right);
+
+            switch (expr.oper.Type)
+            {
+                case TokenType.BANG:
+                    return !IsTruthy(right);
+                case TokenType.MINUS:
+                    CheckNumberOperand(expr.oper, right);
+                    return -(double)right;
+            }
+
+            // Unreachable
+            return null;
+        }
+
+        private bool IsTruthy(object obj)
+        {
+            if (obj == null) return false;
+            if (obj is bool) return (bool)obj;
+            return true;
+        }
+
+        private bool IsEqual(object left, object right)
+        {
+            if (left == null && right == null) return true;
+            if (left == null) return false;
+
+            return left.Equals(right);
+        }
+
+        private string Stringify(object obj)
+        {
+            if (obj == null) return "nil";
+
+            if (obj is double)
+            {
+                string text = obj.ToString();
+                return text;
+            }
+
+            if (obj is bool) return obj.ToString().ToLower();
+
+            return obj.ToString();
+        }
+
+        private object Evaluate(Expr expr)
+        {
+            return expr.Accept(this);
+        }
+
+        private void CheckNumberOperand(Token oper, object operand)
+        {
+            if (operand is double) return;
+
+            throw new LoxRuntimeErrorException(oper, "Operand must be a number.");
+        }
+
+        private void CheckNumberOperands(Token oper, object left, object right)
+        {
+            if (left is double && right is double) return;
+
+            throw new LoxRuntimeErrorException(oper, "Operands must be a numbers.");
+        }
+    }
+}
