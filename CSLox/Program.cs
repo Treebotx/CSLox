@@ -63,13 +63,12 @@ namespace CSLox
             List<Token> tokens = scanner.ScanTokens();
 
             Parser parser = new Parser(tokens, errorReporter);
-            Expr expr = parser.Parse();
+            var statements = parser.Parse();
 
-            //if (errorReporter.HadError) return;
-            if (expr == null) return;
+            if (errorReporter.HadError) return;
 
             //Console.WriteLine(new AstPrinter().Print(expr));
-            interpreter.Interpret(expr);
+            interpreter.Interpret(statements);
         }
     }
 }

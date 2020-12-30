@@ -1,27 +1,39 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace CSLox
 {
-    public class Interpreter : Expr.IVisitor<object>
+    public class Interpreter : Expr.IVisitor<object>, Stmt.IVisitor<object>
     {
         private IErrorReporter _errorReporter;
+        private LoxEnvironment _environment = new LoxEnvironment();
 
         public Interpreter(IErrorReporter errorReporter)
         {
             _errorReporter = errorReporter;
         }
 
-         public void Interpret(Expr expr)
+         public void Interpret(IList<Stmt> statements)
         {
             try
             {
-                object value = Evaluate(expr);
-                Console.WriteLine(Stringify(value));
+                foreach (var statement in statements)
+                {
+                    Execute(statement);
+                }
             }
             catch (LoxRuntimeErrorException error)
             {
                 _errorReporter.RuntimeError(error);
             }
+        }
+
+        public object VisitAssignExpr(Expr.Assign expr)
+        {
+            object value = Evaluate(expr.value);
+            _environment.Assign(expr.name, value);
+
+            return value;
         }
 
         public object VisitBinaryExpr(Expr.Binary expr)
@@ -102,6 +114,45 @@ namespace CSLox
             return null;
         }
 
+        public object VisitVariableExpr(Expr.Variable expr)
+        {
+            return _environment.Get(expr.name);
+        }
+
+        public object VisitExpressionStmt(Stmt.Expression stmt)
+        {
+            Evaluate(stmt.expression);
+
+            return null;
+        }
+
+        public object VisitPrintStmt(Stmt.Print stmt)
+        {
+            object value = Evaluate(stmt.expression);
+            Console.WriteLine(Stringify(value));
+
+            return null;
+        }
+
+        public object VisitVarStmt(Stmt.Var stmt)
+        {
+            object value = null;
+            if (stmt.initilizer != null)
+            {
+                value = Evaluate(stmt.initilizer);
+            }
+
+            _environment.Define(stmt.name.Lexeme, value);
+
+            return null;
+        }
+
+        public object VisitBlockStmt(Stmt.Block stmt)
+        {
+            ExecuteBlock(stmt.statements, new LoxEnvironment(_environment));
+            return null;
+        }
+
         private bool IsTruthy(object obj)
         {
             if (obj == null) return false;
@@ -135,6 +186,30 @@ namespace CSLox
         private object Evaluate(Expr expr)
         {
             return expr.Accept(this);
+        }
+
+        private void Execute(Stmt stmt)
+        {
+            stmt.Accept(this);
+        }
+
+        private void ExecuteBlock(IList<Stmt> statements, LoxEnvironment environment)
+        {
+            LoxEnvironment previous = _environment;
+
+            try
+            {
+                _environment = environment;
+
+                foreach (var statement in statements)
+                {
+                    Execute(statement);
+                }
+            }
+            finally
+            {
+                _environment = previous;
+            }
         }
 
         private void CheckNumberOperand(Token oper, object operand)

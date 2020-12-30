@@ -1,17 +1,29 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace CSLox
 {
     public class Parser
     {
         /*
-         * expression    -> equality ;
+         * program       -> declaration* EOF ;
+         * declaration   -> varDecl | statement ;
+         * varDecl       -> "var" IDENTIFIER ( "=" expression)? ";" ;
+         * statement     -> exprStmt | printStmt | block ;
+         * block         -> "{" declaration* "}" ;
+         * exprStmt      -> expression ";" ;
+         * printStmt     -> "print" expression ";" ;
+         * expression    -> assignment ;
+         * assignment    -> IDENTIFIER "=" assignment | equality ;
          * equality      -> comparison ( ( "!=" | "==") comparison )* ;
          * comparison    -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
          * term          -> factor ( ( "-" | "+" ) factor )* ;
          * factor        -> unary ( ( "/" | "*" ) unary )* ;
          * unary         -> ( "!" | "-" ) unary | primary ;
-         * primary       -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+         * primary       -> "true" | "false" | "nil"
+         *                | NUMBER | STRING
+         *                | "(" expression ")"
+         *                | IDENTIFIER ;
          */
 
         private List<Token> _tokens;
@@ -34,22 +46,117 @@ namespace CSLox
             _errorReporter = errorReporter;
         }
 
-        public Expr Parse()
+        public IList<Stmt> Parse()
+        {
+            var statements = new List<Stmt>();
+            
+            while (!IsAtEnd)
+            {
+                statements.Add(Declaration());
+            }
+
+            return statements;
+        }
+
+        // declaration   -> varDecl | statement ;
+        private Stmt Declaration()
         {
             try
             {
-                return Expression();
+                if (Match(TokenType.VAR)) return VarDeclaration();
+
+                return Statement();
             }
             catch (LoxParseErrorException error)
             {
+                Synchronise();
                 return null;
             }
         }
 
-        // expression    -> equality ;
+        // varDecl       -> "var" IDENTIFIER( "=" expression)? ";" ;
+        private Stmt VarDeclaration()
+        {
+            Token name = Consume(TokenType.IDENTIFIER, "Expect variable name.");
+
+            Expr initilizer = null;
+            if (Match(TokenType.EQUAL))
+            {
+                initilizer = Expression();
+            }
+
+            Consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+            return new Stmt.Var(name, initilizer);
+        }
+
+        // statement     -> exprStmt | printStmt | block ;
+        private Stmt Statement()
+        {
+            if (Match(TokenType.PRINT)) return PrintStatement();
+            if (Match(TokenType.LEFT_BRACE)) return new Stmt.Block(Block());
+
+            return ExpressionStatement();
+        }
+
+        // block         -> "{" declaration* "}" ;
+        private IList<Stmt> Block()
+        {
+            IList<Stmt> statements = new List<Stmt>();
+
+            while (!Check(TokenType.RIGHT_BRACE) && !IsAtEnd)
+            {
+                statements.Add(Declaration());
+            }
+
+            Consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
+
+            return statements;
+        }
+
+        // exprStmt      -> expression ";" ;
+        private Stmt ExpressionStatement()
+        {
+            Expr expr = Expression();
+            Consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+
+            return new Stmt.Expression(expr);
+        }
+
+        // printStmt     -> "print" expression ";" ;
+        private Stmt PrintStatement()
+        {
+            Expr value = Expression();
+            Consume(TokenType.SEMICOLON, "Expect ';' after value.");
+
+            return new Stmt.Print(value);
+        }
+
+        // expression    -> assignment ;
         private Expr Expression()
         {
-            return Equality();
+            return Assignment();
+        }
+
+        // assignment    -> IDENTIFIER "=" assignment | equality ;
+        private Expr Assignment()
+        {
+            Expr expr = Equality();
+
+            if (Match(TokenType.EQUAL))
+            {
+                Token equals = Previous();
+                Expr value = Assignment();
+
+                if (expr is Expr.Variable variable)
+                {
+                    Token name = variable.name;
+                    return new Expr.Assign(name, value);
+                }
+
+                Error(equals, "Invalid assignment target.");
+            }
+
+            return expr;
         }
 
         // equality      -> comparison ( ( "!=" | "==") comparison )* ;
@@ -112,6 +219,7 @@ namespace CSLox
 
             return expr;
         }
+
         // unary         -> ( "!" | "-" ) unary | primary ;
         private Expr Unary()
         {
@@ -124,7 +232,11 @@ namespace CSLox
 
             return Primary();
         }
-        // primary       -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+        
+        // primary       -> "true" | "false" | "nil"
+        //                | NUMBER | STRING
+        //                | "(" expression ")"
+        //                | IDENTIFIER ;
         private Expr Primary()
         {
             if (Match(TokenType.FALSE)) return new Expr.Literal(false);
@@ -132,6 +244,8 @@ namespace CSLox
             if (Match(TokenType.NIL)) return new Expr.Literal(null);
 
             if (Match(TokenType.NUMBER, TokenType.STRING)) return new Expr.Literal(Previous().Literal);
+
+            if (Match(TokenType.IDENTIFIER)) return new Expr.Variable(Previous());
 
             if (Match(TokenType.LEFT_PAREN))
             {

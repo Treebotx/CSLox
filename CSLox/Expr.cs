@@ -4,10 +4,29 @@ namespace CSLox
 	{
 		public interface IVisitor<R>
 		{
+			R VisitAssignExpr ( Assign expr );
 			R VisitBinaryExpr ( Binary expr );
 			R VisitGroupingExpr ( Grouping expr );
 			R VisitLiteralExpr ( Literal expr );
 			R VisitUnaryExpr ( Unary expr );
+			R VisitVariableExpr ( Variable expr );
+		}
+
+		public class Assign : Expr
+		{
+			public Assign ( Token name, Expr value )
+			{
+				this.name = name;
+				this.value = value;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitAssignExpr(this);
+			}
+
+			public Token name;
+			public Expr value;
 		}
 
 		public class Binary : Expr
@@ -74,6 +93,21 @@ namespace CSLox
 
 			public Token oper;
 			public Expr right;
+		}
+
+		public class Variable : Expr
+		{
+			public Variable ( Token name )
+			{
+				this.name = name;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitVariableExpr(this);
+			}
+
+			public Token name;
 		}
 
 		public abstract R Accept<R>(IVisitor<R> visitor);
