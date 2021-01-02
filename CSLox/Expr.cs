@@ -8,6 +8,7 @@ namespace CSLox
 			R VisitBinaryExpr ( Binary expr );
 			R VisitGroupingExpr ( Grouping expr );
 			R VisitLiteralExpr ( Literal expr );
+			R VisitLogicalExpr ( Logical expr );
 			R VisitUnaryExpr ( Unary expr );
 			R VisitVariableExpr ( Variable expr );
 		}
@@ -76,6 +77,25 @@ namespace CSLox
 			}
 
 			public object value;
+		}
+
+		public class Logical : Expr
+		{
+			public Logical ( Expr left, Token oper, Expr right )
+			{
+				this.left = left;
+				this.oper = oper;
+				this.right = right;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitLogicalExpr(this);
+			}
+
+			public Expr left;
+			public Token oper;
+			public Expr right;
 		}
 
 		public class Unary : Expr

@@ -22,6 +22,7 @@ namespace CSLox.Tools
                 "Binary   : Expr left, Token oper, Expr right",
                 "Grouping : Expr expression",
                 "Literal  : object value",
+                "Logical  : Expr left, Token oper, Expr right",
                 "Unary    : Token oper, Expr right",
                 "Variable : Token name"
             });
@@ -29,9 +30,12 @@ namespace CSLox.Tools
             DefineAst(outputDir, "Stmt", new List<string>
             {
                 "Block      : IList<Stmt> statements",
+                "If         : Expr condition, Stmt thenBranch," +
+                            " Stmt elseBranch",
                 "Expression : Expr expression",
                 "Print      : Expr expression",
-                "Var        : Token name, Expr initilizer"
+                "Var        : Token name, Expr initilizer",
+                "While      : Expr condition, Stmt body"
             });
 
             return 0;

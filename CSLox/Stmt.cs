@@ -7,9 +7,11 @@ namespace CSLox
 		public interface IVisitor<R>
 		{
 			R VisitBlockStmt ( Block stmt );
+			R VisitIfStmt ( If stmt );
 			R VisitExpressionStmt ( Expression stmt );
 			R VisitPrintStmt ( Print stmt );
 			R VisitVarStmt ( Var stmt );
+			R VisitWhileStmt ( While stmt );
 		}
 
 		public class Block : Stmt
@@ -25,6 +27,25 @@ namespace CSLox
 			}
 
 			public IList<Stmt> statements;
+		}
+
+		public class If : Stmt
+		{
+			public If ( Expr condition, Stmt thenBranch, Stmt elseBranch )
+			{
+				this.condition = condition;
+				this.thenBranch = thenBranch;
+				this.elseBranch = elseBranch;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitIfStmt(this);
+			}
+
+			public Expr condition;
+			public Stmt thenBranch;
+			public Stmt elseBranch;
 		}
 
 		public class Expression : Stmt
@@ -72,6 +93,23 @@ namespace CSLox
 
 			public Token name;
 			public Expr initilizer;
+		}
+
+		public class While : Stmt
+		{
+			public While ( Expr condition, Stmt body )
+			{
+				this.condition = condition;
+				this.body = body;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitWhileStmt(this);
+			}
+
+			public Expr condition;
+			public Stmt body;
 		}
 
 		public abstract R Accept<R>(IVisitor<R> visitor);

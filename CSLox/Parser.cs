@@ -9,12 +9,27 @@ namespace CSLox
          * program       -> declaration* EOF ;
          * declaration   -> varDecl | statement ;
          * varDecl       -> "var" IDENTIFIER ( "=" expression)? ";" ;
-         * statement     -> exprStmt | printStmt | block ;
+         * statement     -> exprStmt
+         *                | forStmt
+         *                | ifStmt
+         *                | forStmt
+         *                | printStmt
+         *                | whileStmt
+         *                | block ;
+         * forStmt        | "for" "(" ( varDecl | exprStmt | ";" )
+         *                  expression? ";"
+         *                  expression? ";" statement ;
+         * whileStmt     -> "while" "(" expression ")" statement ;
+         * ifStmt        -> "if" "(" expression ")" statement
+         *                ( "else" statement )? ;
          * block         -> "{" declaration* "}" ;
          * exprStmt      -> expression ";" ;
          * printStmt     -> "print" expression ";" ;
          * expression    -> assignment ;
-         * assignment    -> IDENTIFIER "=" assignment | equality ;
+         * assignment    -> IDENTIFIER "=" assignment
+         *                | logic_or ;
+         * logic_or      -> logic_and ( "or" logic_and )* ;
+         * logic_and     -> equality ( "and" equality )* ;
          * equality      -> comparison ( ( "!=" | "==") comparison )* ;
          * comparison    -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
          * term          -> factor ( ( "-" | "+" ) factor )* ;
@@ -89,13 +104,92 @@ namespace CSLox
             return new Stmt.Var(name, initilizer);
         }
 
-        // statement     -> exprStmt | printStmt | block ;
+        // statement     -> exprStmt
+        //                | forStmt
+        //                | ifStmt
+        //                | printStmt
+        //                | whileStmt
+        //                | block ;
         private Stmt Statement()
         {
+            if (Match(TokenType.FOR)) return ForStatement();
+            if (Match(TokenType.IF)) return IfStatement();
             if (Match(TokenType.PRINT)) return PrintStatement();
+            if (Match(TokenType.WHILE)) return WhileStatement();
             if (Match(TokenType.LEFT_BRACE)) return new Stmt.Block(Block());
 
             return ExpressionStatement();
+        }
+
+        // forStmt        | "for" "(" (varDecl | exprStmt | ";" )
+        //                  expression? ";"
+        //                  expression? ";" statement ;
+        private Stmt ForStatement()
+        {
+            Consume(TokenType.LEFT_PAREN, "Expected '(' after 'for'.");
+
+            Stmt initializer;
+            if (Match(TokenType.SEMICOLON)) initializer = null;
+            else if (Match(TokenType.VAR)) initializer = VarDeclaration();
+            else initializer = ExpressionStatement();
+
+            Expr condition = null;
+            if (!Check(TokenType.SEMICOLON))
+            {
+                condition = Expression();
+            }
+            Consume(TokenType.SEMICOLON, "Expected ';' after loop condition.");
+
+            Expr increment = null;
+            if (!Check(TokenType.RIGHT_PAREN))
+            {
+                increment = Expression();
+            }
+            Consume(TokenType.RIGHT_PAREN, "Expected ')' after for clauses.");
+
+            Stmt body = Statement();
+
+            if (increment != null)
+            {
+                body = new Stmt.Block(new List<Stmt>
+                {
+                    body,
+                    new Stmt.Expression(increment)
+                });
+            }
+
+            if (condition == null) condition = new Expr.Literal(true);
+            body = new Stmt.While(condition, body);
+
+            if (initializer != null)
+            {
+                body = new Stmt.Block(new List<Stmt>
+                {
+                    initializer,
+                    body
+                });
+            }
+
+            return body;
+        }
+
+        // ifStmt        -> "if" "(" expression ")" statement
+        //                ( "else" statement )? ;
+        private Stmt IfStatement()
+        {
+            Consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
+            Expr condition = Expression();
+            Consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
+
+            Stmt thenBranch = Statement();
+
+            Stmt elseBranch = null;
+            if (Match(TokenType.ELSE))
+            {
+                elseBranch = Statement();
+            }
+
+            return new Stmt.If(condition, thenBranch, elseBranch);
         }
 
         // block         -> "{" declaration* "}" ;
@@ -131,16 +225,28 @@ namespace CSLox
             return new Stmt.Print(value);
         }
 
+        // whileStmt     -> "while" "(" expression ")" statement ;
+        private Stmt WhileStatement()
+        {
+            Consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
+            Expr condition = Expression();
+            Consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
+            Stmt body = Statement();
+
+            return new Stmt.While(condition, body);
+        }
+
         // expression    -> assignment ;
         private Expr Expression()
         {
             return Assignment();
         }
 
-        // assignment    -> IDENTIFIER "=" assignment | equality ;
+        // assignment    -> IDENTIFIER "=" assignment
+        //                | logic_or ;
         private Expr Assignment()
         {
-            Expr expr = Equality();
+            Expr expr = Or();
 
             if (Match(TokenType.EQUAL))
             {
@@ -154,6 +260,37 @@ namespace CSLox
                 }
 
                 Error(equals, "Invalid assignment target.");
+            }
+
+            return expr;
+        }
+
+        // logic_or      -> logic_and( "or" logic_and )* ;
+        private Expr Or()
+        {
+            Expr expr = And();
+
+            while (Match(TokenType.OR))
+            {
+                Token oper = Previous();
+                Expr right = And();
+                expr = new Expr.Logical(expr, oper, right);
+            }
+
+            return expr;
+        }
+
+        // logic_and     -> equality( "and" equality )* ;
+
+        private Expr And()
+        {
+            Expr expr = Equality();
+
+            while (Match(TokenType.AND))
+            {
+                Token oper = Previous();
+                Expr right = Equality();
+                expr = new Expr.Logical(expr, oper, right);
             }
 
             return expr;
