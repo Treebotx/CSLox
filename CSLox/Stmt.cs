@@ -7,9 +7,11 @@ namespace CSLox
 		public interface IVisitor<R>
 		{
 			R VisitBlockStmt ( Block stmt );
+			R VisitFunctionStmt ( Function stmt );
 			R VisitIfStmt ( If stmt );
 			R VisitExpressionStmt ( Expression stmt );
 			R VisitPrintStmt ( Print stmt );
+			R VisitReturnStmt ( Return stmt );
 			R VisitVarStmt ( Var stmt );
 			R VisitWhileStmt ( While stmt );
 		}
@@ -27,6 +29,25 @@ namespace CSLox
 			}
 
 			public IList<Stmt> statements;
+		}
+
+		public class Function : Stmt
+		{
+			public Function ( Token name, IList<Token> parameters, IList<Stmt> body )
+			{
+				this.name = name;
+				this.parameters = parameters;
+				this.body = body;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitFunctionStmt(this);
+			}
+
+			public Token name;
+			public IList<Token> parameters;
+			public IList<Stmt> body;
 		}
 
 		public class If : Stmt
@@ -76,6 +97,23 @@ namespace CSLox
 			}
 
 			public Expr expression;
+		}
+
+		public class Return : Stmt
+		{
+			public Return ( Token keyword, Expr value )
+			{
+				this.keyword = keyword;
+				this.value = value;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitReturnStmt(this);
+			}
+
+			public Token keyword;
+			public Expr value;
 		}
 
 		public class Var : Stmt

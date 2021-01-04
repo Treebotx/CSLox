@@ -6,14 +6,18 @@ namespace CSLox
     public class Interpreter : Expr.IVisitor<object>, Stmt.IVisitor<object>
     {
         private IErrorReporter _errorReporter;
-        private LoxEnvironment _environment = new LoxEnvironment();
+        private LoxEnvironment Globals { get; } = new LoxEnvironment();
+
+        private LoxEnvironment _environment;
 
         public Interpreter(IErrorReporter errorReporter)
         {
             _errorReporter = errorReporter;
+            _environment = Globals;
+            Globals.Define("clock", new Clock());
         }
 
-         public void Interpret(IList<Stmt> statements)
+        public void Interpret(IList<Stmt> statements)
         {
             try
             {
@@ -87,6 +91,30 @@ namespace CSLox
             return null;
         }
 
+        public object VisitCallExpr(Expr.Call expr)
+        {
+            var callee = Evaluate(expr.callee);
+
+            var arguments = new List<object>();
+            foreach (var argument in expr.arguments)
+            {
+                arguments.Add(Evaluate(argument));
+            }
+
+            if (!(callee is ILoxCallable function))
+            {
+                throw new LoxRuntimeErrorException(expr.paren, "Can only call functions and classes.");
+            }
+
+            if (arguments.Count != function.Arity)
+            {
+                throw new LoxRuntimeErrorException(expr.paren,
+                    $"Expected {function.Arity} arguments but got {arguments.Count}.");
+            }
+
+            return function.Call(this, arguments);
+        }
+
         public object VisitGroupingExpr(Expr.Grouping expr)
         {
             return Evaluate(expr.expression);
@@ -142,12 +170,28 @@ namespace CSLox
             return null;
         }
 
+        public object VisitFunctionStmt(Stmt.Function stmt)
+        {
+            var function = new LoxFunction(stmt, _environment);
+            _environment.Define(stmt.name.Lexeme, function);
+
+            return null;
+        }
+
         public object VisitPrintStmt(Stmt.Print stmt)
         {
             object value = Evaluate(stmt.expression);
             Console.WriteLine(Stringify(value));
 
             return null;
+        }
+
+        public object VisitReturnStmt(Stmt.Return stmt)
+        {
+            object value = null;
+            if (stmt.value != null) value = Evaluate(stmt.value);
+
+            throw new Return(value);
         }
 
         public object VisitVarStmt(Stmt.Var stmt)
@@ -233,7 +277,7 @@ namespace CSLox
             stmt.Accept(this);
         }
 
-        private void ExecuteBlock(IList<Stmt> statements, LoxEnvironment environment)
+        public void ExecuteBlock(IList<Stmt> statements, LoxEnvironment environment)
         {
             LoxEnvironment previous = _environment;
 

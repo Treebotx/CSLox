@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace CSLox
 {
 	public abstract class Expr
@@ -6,6 +8,7 @@ namespace CSLox
 		{
 			R VisitAssignExpr ( Assign expr );
 			R VisitBinaryExpr ( Binary expr );
+			R VisitCallExpr ( Call expr );
 			R VisitGroupingExpr ( Grouping expr );
 			R VisitLiteralExpr ( Literal expr );
 			R VisitLogicalExpr ( Logical expr );
@@ -47,6 +50,25 @@ namespace CSLox
 			public Expr left;
 			public Token oper;
 			public Expr right;
+		}
+
+		public class Call : Expr
+		{
+			public Call ( Expr callee, Token paren, IList<Expr> arguments )
+			{
+				this.callee = callee;
+				this.paren = paren;
+				this.arguments = arguments;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitCallExpr(this);
+			}
+
+			public Expr callee;
+			public Token paren;
+			public IList<Expr> arguments;
 		}
 
 		public class Grouping : Expr

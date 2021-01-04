@@ -7,15 +7,22 @@ namespace CSLox
     {
         /*
          * program       -> declaration* EOF ;
-         * declaration   -> varDecl | statement ;
+         * declaration   -> funDecl
+         *                | varDecl
+         *                | statement ;
+         * funDecl       -> "fun" function ;
+         * function      -> IDENTIFIER "(" parameters? ")" block ;
+         * parameters    -> IDENTIFIER ( "," IDENTIFIER )* ;
          * varDecl       -> "var" IDENTIFIER ( "=" expression)? ";" ;
          * statement     -> exprStmt
          *                | forStmt
          *                | ifStmt
          *                | forStmt
          *                | printStmt
+         *                | returnStmt
          *                | whileStmt
          *                | block ;
+         * returnStmt    -> "return" expression? ";" ;
          * forStmt        | "for" "(" ( varDecl | exprStmt | ";" )
          *                  expression? ";"
          *                  expression? ";" statement ;
@@ -25,6 +32,7 @@ namespace CSLox
          * block         -> "{" declaration* "}" ;
          * exprStmt      -> expression ";" ;
          * printStmt     -> "print" expression ";" ;
+         * arguments     -> expression ( "," expression )* ;
          * expression    -> assignment ;
          * assignment    -> IDENTIFIER "=" assignment
          *                | logic_or ;
@@ -34,7 +42,8 @@ namespace CSLox
          * comparison    -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
          * term          -> factor ( ( "-" | "+" ) factor )* ;
          * factor        -> unary ( ( "/" | "*" ) unary )* ;
-         * unary         -> ( "!" | "-" ) unary | primary ;
+         * unary         -> ( "!" | "-" ) unary | call ;
+         * call          -> primary ( "(" arguments? ") )* ;
          * primary       -> "true" | "false" | "nil"
          *                | NUMBER | STRING
          *                | "(" expression ")"
@@ -73,11 +82,14 @@ namespace CSLox
             return statements;
         }
 
-        // declaration   -> varDecl | statement ;
+        // declaration   -> funDecl
+        //                | varDecl
+        //                | statement ;
         private Stmt Declaration()
         {
             try
             {
+                if (Match(TokenType.FUN)) return Function("function");
                 if (Match(TokenType.VAR)) return VarDeclaration();
 
                 return Statement();
@@ -87,6 +99,36 @@ namespace CSLox
                 Synchronise();
                 return null;
             }
+        }
+
+        // funDecl       -> "fun" function ;
+        // function      -> IDENTIFIER "(" parameters? ")" block ;
+        private Stmt Function(string kind)
+        {
+            var name = Consume(TokenType.IDENTIFIER, $"Expected {kind} name.");
+            Consume(TokenType.LEFT_PAREN, $"Expected '(' after {kind} name.");
+
+            var paramaters = new List<Token>();
+
+            if (!Check(TokenType.RIGHT_PAREN))
+            {
+                do
+                {
+                    if (paramaters.Count > 255)
+                    {
+                        Error(Peek(), "Can't have more than 255 parameters.");
+                    }
+
+                    paramaters.Add(Consume(TokenType.IDENTIFIER, "Expected parameter name."));
+                } while (Match(TokenType.COMMA));
+            }
+
+            Consume(TokenType.RIGHT_PAREN, "Expected ')' after parameters.");
+
+            Consume(TokenType.LEFT_BRACE, $"Expected '{{' before {kind} body.");
+            var body = Block();
+
+            return new Stmt.Function(name, paramaters, body);
         }
 
         // varDecl       -> "var" IDENTIFIER( "=" expression)? ";" ;
@@ -108,6 +150,7 @@ namespace CSLox
         //                | forStmt
         //                | ifStmt
         //                | printStmt
+        //                | returnStmt
         //                | whileStmt
         //                | block ;
         private Stmt Statement()
@@ -115,6 +158,7 @@ namespace CSLox
             if (Match(TokenType.FOR)) return ForStatement();
             if (Match(TokenType.IF)) return IfStatement();
             if (Match(TokenType.PRINT)) return PrintStatement();
+            if (Match(TokenType.RETURN)) return ReturnStatement();
             if (Match(TokenType.WHILE)) return WhileStatement();
             if (Match(TokenType.LEFT_BRACE)) return new Stmt.Block(Block());
 
@@ -223,6 +267,21 @@ namespace CSLox
             Consume(TokenType.SEMICOLON, "Expect ';' after value.");
 
             return new Stmt.Print(value);
+        }
+
+        // returnStmt    -> "return" expression? ";" ;
+        private Stmt ReturnStatement()
+        {
+            Token keyword = Previous();
+            Expr value = null;
+            if (!Check(TokenType.SEMICOLON))
+            {
+                value = Expression();
+            }
+
+            Consume(TokenType.SEMICOLON, "Expected ';' after return value.");
+
+            return new Stmt.Return(keyword, value);
         }
 
         // whileStmt     -> "while" "(" expression ")" statement ;
@@ -357,7 +416,7 @@ namespace CSLox
             return expr;
         }
 
-        // unary         -> ( "!" | "-" ) unary | primary ;
+        // unary         -> ( "!" | "-" ) unary | call ;
         private Expr Unary()
         {
             if (Match(TokenType.BANG, TokenType.MINUS))
@@ -367,9 +426,50 @@ namespace CSLox
                 return new Expr.Unary(oper, right);
             }
 
-            return Primary();
+            return Call();
         }
-        
+
+        // call          -> primary( "(" arguments? ") )* ;
+        private Expr Call()
+        {
+            Expr expr = Primary();
+
+            while (true)
+            {
+                if (Match(TokenType.LEFT_PAREN))
+                {
+                    expr = FinishCall(expr);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return expr;
+        }
+
+        private Expr FinishCall(Expr callee)
+        {
+            var arguments = new List<Expr>();
+            if (!Check(TokenType.RIGHT_PAREN))
+            {
+                do
+                {
+                    if (arguments.Count > 255)
+                    {
+                        Error(Peek(), "Can't have more than 255 arguments.");
+                    }
+
+                    arguments.Add(Expression());
+                } while (Match(TokenType.COMMA)) ;
+            }
+
+            var paren = Consume(TokenType.RIGHT_PAREN, "Expected ')' after arguments.");
+
+            return new Expr.Call(callee, paren, arguments);
+        }
+
         // primary       -> "true" | "false" | "nil"
         //                | NUMBER | STRING
         //                | "(" expression ")"

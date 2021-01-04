@@ -20,6 +20,7 @@ namespace CSLox.Tools
             {
                 "Assign   : Token name, Expr value",
                 "Binary   : Expr left, Token oper, Expr right",
+                "Call     : Expr callee, Token paren, IList<Expr> arguments",
                 "Grouping : Expr expression",
                 "Literal  : object value",
                 "Logical  : Expr left, Token oper, Expr right",
@@ -30,10 +31,13 @@ namespace CSLox.Tools
             DefineAst(outputDir, "Stmt", new List<string>
             {
                 "Block      : IList<Stmt> statements",
+                "Function   : Token name, IList<Token> parameters," +
+                            " IList<Stmt> body",
                 "If         : Expr condition, Stmt thenBranch," +
                             " Stmt elseBranch",
                 "Expression : Expr expression",
                 "Print      : Expr expression",
+                "Return     : Token keyword, Expr value",
                 "Var        : Token name, Expr initilizer",
                 "While      : Expr condition, Stmt body"
             });
@@ -47,7 +51,7 @@ namespace CSLox.Tools
 
             using (StreamWriter writer = new StreamWriter(path))
             {
-                if (baseName == "Stmt") writer.WriteLine($"using System.Collections.Generic;\n");
+                writer.WriteLine($"using System.Collections.Generic;\n");
                 writer.WriteLine($"{Indent()}namespace CSLox{OpenBrace()}");
 
                 writer.WriteLine($"{Indent()}public abstract class {baseName}{OpenBrace()}");
