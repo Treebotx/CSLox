@@ -67,6 +67,11 @@ namespace CSLox
 
             if (errorReporter.HadError) return;
 
+            var resolver = new Resolver(interpreter, errorReporter);
+            resolver.Resolve(statements);
+
+            if (errorReporter.HadError) return;
+
             //Console.WriteLine(new AstPrinter().Print(expr));
             interpreter.Interpret(statements);
         }

@@ -7,6 +7,7 @@ namespace CSLox
     {
         private IErrorReporter _errorReporter;
         private LoxEnvironment Globals { get; } = new LoxEnvironment();
+        private readonly IDictionary<Expr, int> _locals = new Dictionary<Expr, int>();
 
         private LoxEnvironment _environment;
 
@@ -35,7 +36,15 @@ namespace CSLox
         public object VisitAssignExpr(Expr.Assign expr)
         {
             object value = Evaluate(expr.value);
-            _environment.Assign(expr.name, value);
+
+            if (_locals.TryGetValue(expr, out var distance))
+            {
+                _environment.AssignAt(distance, expr.name, value);
+            }
+            else
+            {
+                Globals.Assign(expr.name, value);
+            }
 
             return value;
         }
@@ -160,7 +169,19 @@ namespace CSLox
 
         public object VisitVariableExpr(Expr.Variable expr)
         {
-            return _environment.Get(expr.name);
+            return LookUpVariable(expr.name, expr);
+        }
+
+        private object LookUpVariable(Token name, Expr expr)
+        {
+            if (_locals.TryGetValue(expr, out var distance))
+            {
+                return _environment.GetAt(distance, name.Lexeme);
+            }
+            else
+            {
+                return Globals.Get(name);
+            }
         }
 
         public object VisitExpressionStmt(Stmt.Expression stmt)
@@ -275,6 +296,11 @@ namespace CSLox
         private void Execute(Stmt stmt)
         {
             stmt.Accept(this);
+        }
+
+        public void Resolve(Expr expr, int depth)
+        {
+            _locals.Add(expr, depth);
         }
 
         public void ExecuteBlock(IList<Stmt> statements, LoxEnvironment environment)
