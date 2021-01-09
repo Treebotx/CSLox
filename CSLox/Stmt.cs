@@ -7,6 +7,7 @@ namespace CSLox
 		public interface IVisitor<R>
 		{
 			R VisitBlockStmt ( Block stmt );
+			R VisitClassStmt ( Class stmt );
 			R VisitFunctionStmt ( Function stmt );
 			R VisitIfStmt ( If stmt );
 			R VisitExpressionStmt ( Expression stmt );
@@ -29,6 +30,23 @@ namespace CSLox
 			}
 
 			public IList<Stmt> statements;
+		}
+
+		public class Class : Stmt
+		{
+			public Class ( Token name, IList<Stmt.Function> methods )
+			{
+				this.name = name;
+				this.methods = methods;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitClassStmt(this);
+			}
+
+			public Token name;
+			public IList<Stmt.Function> methods;
 		}
 
 		public class Function : Stmt

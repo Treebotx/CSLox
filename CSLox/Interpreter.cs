@@ -124,6 +124,38 @@ namespace CSLox
             return function.Call(this, arguments);
         }
 
+        public object VisitGetExpr(Expr.Get expr)
+        {
+            var obj = Evaluate(expr.obj);
+            if (obj is LoxInstance loxInstance)
+            {
+                return loxInstance.Get(expr.name);
+            }
+
+            throw new LoxRuntimeErrorException(expr.name, "Only instances have properties.");
+        }
+
+        public object VisitSetExpr(Expr.Set expr)
+        {
+            var obj = Evaluate(expr.obj);
+
+            var loxInstance = obj as LoxInstance;
+
+            if (obj is null)
+            {
+                throw new LoxRuntimeErrorException(expr.name, "Only instances have fields.");
+            }
+
+            var value = Evaluate(expr.value);
+            loxInstance.Set(expr.name, value);
+            return value;
+        }
+
+        public object VisitThisExpr(Expr.This expr)
+        {
+            return LookUpVariable(expr.keyword, expr);
+        }
+
         public object VisitGroupingExpr(Expr.Grouping expr)
         {
             return Evaluate(expr.expression);
@@ -231,6 +263,25 @@ namespace CSLox
         public object VisitBlockStmt(Stmt.Block stmt)
         {
             ExecuteBlock(stmt.statements, new LoxEnvironment(_environment));
+            return null;
+        }
+
+        public object VisitClassStmt(Stmt.Class stmt)
+        {
+            _environment.Define(stmt.name.Lexeme, null);
+
+            var methods = new Dictionary<string, LoxFunction>();
+            foreach (var method in stmt.methods)
+            {
+                var functionType = method.name.Lexeme.Equals("init")
+                    ? FunctionTypes.INITIALIZER
+                    : FunctionTypes.NONE;
+                methods[method.name.Lexeme] = new LoxFunction(method, _environment, functionType);
+            }
+
+            var loxClass = new LoxClass(stmt.name.Lexeme, methods);
+            _environment.Assign(stmt.name, loxClass);
+
             return null;
         }
 

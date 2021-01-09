@@ -21,6 +21,9 @@ namespace CSLox.Tools
                 "Assign   : Token name, Expr value",
                 "Binary   : Expr left, Token oper, Expr right",
                 "Call     : Expr callee, Token paren, IList<Expr> arguments",
+                "Get      : Expr obj, Token name",
+                "Set      : Expr obj, Token name, Expr value",
+                "This     : Token keyword",
                 "Grouping : Expr expression",
                 "Literal  : object value",
                 "Logical  : Expr left, Token oper, Expr right",
@@ -31,6 +34,7 @@ namespace CSLox.Tools
             DefineAst(outputDir, "Stmt", new List<string>
             {
                 "Block      : IList<Stmt> statements",
+                "Class      : Token name, IList<Stmt.Function> methods",
                 "Function   : Token name, IList<Token> parameters," +
                             " IList<Stmt> body",
                 "If         : Expr condition, Stmt thenBranch," +
@@ -51,10 +55,13 @@ namespace CSLox.Tools
 
             using (StreamWriter writer = new StreamWriter(path))
             {
-                writer.WriteLine($"using System.Collections.Generic;\n");
-                writer.WriteLine($"{Indent()}namespace CSLox{OpenBrace()}");
+                writer.WriteLine($"using System.Collections.Generic;");
+                writer.WriteLine();
+                writer.WriteLine($"{Indent()}namespace CSLox");
+                writer.WriteLine(OpenBrace());
 
-                writer.WriteLine($"{Indent()}public abstract class {baseName}{OpenBrace()}");
+                writer.WriteLine($"{Indent()}public abstract class {baseName}");
+                writer.WriteLine(OpenBrace());
 
                 DefineVisitor(writer, baseName, types);
 
@@ -77,7 +84,8 @@ namespace CSLox.Tools
 
         private static void DefineVisitor(StreamWriter writer, string baseName, List<string> types)
         {
-            writer.WriteLine($"{Indent()}public interface IVisitor<R>{OpenBrace()}");
+            writer.WriteLine($"{Indent()}public interface IVisitor<R>");
+            writer.WriteLine(OpenBrace());
 
             foreach (var type in types)
             {
@@ -91,10 +99,12 @@ namespace CSLox.Tools
 
         private static void DefineType(StreamWriter writer, string baseName, string className, string fieldList)
         {
-            writer.WriteLine($"{Indent()}public class {className} : {baseName}{OpenBrace()}");
+            writer.WriteLine($"{Indent()}public class {className} : {baseName}");
+            writer.WriteLine(OpenBrace());
 
             // Constructor.
-            writer.WriteLine($"{Indent()}public {className} ( {fieldList} ){OpenBrace()}");
+            writer.WriteLine($"{Indent()}public {className} ( {fieldList} )");
+            writer.WriteLine(OpenBrace());
 
             // Store parameters in fields.
             string[] fields = fieldList.Split(", ");
@@ -108,7 +118,8 @@ namespace CSLox.Tools
 
             // Visitor pattern.
             writer.WriteLine();
-            writer.WriteLine($"{Indent()}public override R Accept<R>(IVisitor<R> visitor){OpenBrace()}");
+            writer.WriteLine($"{Indent()}public override R Accept<R>(IVisitor<R> visitor)");
+            writer.WriteLine(OpenBrace());
             writer.WriteLine($"{Indent()}return visitor.Visit{className}{baseName}(this);");
             writer.WriteLine($"{CloseBrace()}");
 
@@ -128,7 +139,7 @@ namespace CSLox.Tools
 
         private static string OpenBrace()
         {
-            string indent = $"\n{Indent()}{{";
+            string indent = $"{Indent()}{{";
             _indentCounter++;
             return indent;
         }

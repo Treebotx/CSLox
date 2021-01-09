@@ -10,18 +10,19 @@ namespace CSLox
             IS_NOT_INITILIZED
         }
 
-        private enum FunctionType
+        private enum ClassType
         {
             NONE,
-            FUNCTION
+            CLASS
         }
 
+        private ClassType _currentClass = ClassType.NONE;
 
         private readonly Interpreter _interpreter;
         private readonly IErrorReporter _errorReporter;
         private readonly IList<IDictionary<string, VarInitilized>> _scopes = new List<IDictionary<string, VarInitilized>>();
 
-        private FunctionType CurrentFunction { get; set; } = FunctionType.NONE;
+        private FunctionTypes CurrentFunctionType { get; set; } = FunctionTypes.NONE;
 
         public Resolver(Interpreter interpreter, IErrorReporter errorReporter)
         {
@@ -38,6 +39,32 @@ namespace CSLox
             return null;
         }
 
+        public object VisitClassStmt(Stmt.Class stmt)
+        {
+            var enclosingClass = _currentClass;
+            _currentClass = ClassType.CLASS;
+
+            Declare(stmt.name);
+            Define(stmt.name);
+
+            BeginScope();
+
+            _scopes.Peek()["this"] = VarInitilized.IS_INITILIZED;
+
+            foreach (var method in stmt.methods)
+            {
+                var declaration = FunctionTypes.METHOD;
+                if (method.name.Lexeme.Equals("init")) declaration = FunctionTypes.INITIALIZER;
+                ResolveFunction(method, declaration);
+            }
+
+            EndScope();
+
+            _currentClass = enclosingClass;
+
+            return null;
+        }
+
         public object VisitExpressionStmt(Stmt.Expression stmt)
         {
             Resolve(stmt.expression);
@@ -49,7 +76,7 @@ namespace CSLox
             Declare(stmt.name);
             Define(stmt.name);
 
-            ResolveFunction(stmt, FunctionType.FUNCTION);
+            ResolveFunction(stmt, FunctionTypes.FUNCTION);
 
             return null;
         }
@@ -71,9 +98,18 @@ namespace CSLox
 
         public object VisitReturnStmt(Stmt.Return stmt)
         {
-            if (CurrentFunction == FunctionType.NONE) _errorReporter.Error(stmt.keyword, "Cannot return from top-level code.");
+            if (CurrentFunctionType == FunctionTypes.NONE) _errorReporter.Error(stmt.keyword, "Cannot return from top-level code.");
 
-            if (stmt.value != null) Resolve(stmt.value);
+            if (stmt.value != null)
+            {
+                if (CurrentFunctionType == FunctionTypes.INITIALIZER)
+                {
+                    _errorReporter.Error(stmt.keyword, "Cannot return a value from an initializer.");
+                }
+
+                Resolve(stmt.value);
+            }
+
             return null;
         }
 
@@ -155,6 +191,34 @@ namespace CSLox
             return null;
         }
 
+        public object VisitGetExpr(Expr.Get expr)
+        {
+            Resolve(expr.obj);
+
+            return null;
+        }
+
+        public object VisitSetExpr(Expr.Set expr)
+        {
+            Resolve(expr.value);
+            Resolve(expr.obj);
+
+            return null;
+        }
+
+        public object VisitThisExpr(Expr.This expr)
+        {
+            if (_currentClass == ClassType.NONE)
+            {
+                _errorReporter.Error(expr.keyword, "Cannot use 'this' outside of a class.");
+                return null;
+            }
+
+            ResolveLocal(expr, expr.keyword);
+
+            return null;
+        }
+
         public object VisitGroupingExpr(Expr.Grouping expr)
         {
             Resolve(expr.expression);
@@ -209,10 +273,10 @@ namespace CSLox
             }
         }
 
-        private void ResolveFunction(Stmt.Function function, FunctionType type)
+        private void ResolveFunction(Stmt.Function function, FunctionTypes type)
         {
-            var enclosingFunction = CurrentFunction;
-            CurrentFunction = type;
+            var enclosingFunction = CurrentFunctionType;
+            CurrentFunctionType = type;
 
             BeginScope();
 
@@ -226,7 +290,7 @@ namespace CSLox
 
             EndScope();
 
-            CurrentFunction = enclosingFunction;
+            CurrentFunctionType = enclosingFunction;
         }
 
         private void BeginScope()

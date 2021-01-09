@@ -7,9 +7,11 @@ namespace CSLox
     {
         /*
          * program       -> declaration* EOF ;
-         * declaration   -> funDecl
+         * declaration   -> classDecl
+         *                | funDecl
          *                | varDecl
          *                | statement ;
+         * classDecl     -> "class" IDENTIFIER "{" function* "}" ;
          * funDecl       -> "fun" function ;
          * function      -> IDENTIFIER "(" parameters? ")" block ;
          * parameters    -> IDENTIFIER ( "," IDENTIFIER )* ;
@@ -34,7 +36,7 @@ namespace CSLox
          * printStmt     -> "print" expression ";" ;
          * arguments     -> expression ( "," expression )* ;
          * expression    -> assignment ;
-         * assignment    -> IDENTIFIER "=" assignment
+         * assignment    -> ( call "." )? IDENTIFIER "=" assignment
          *                | logic_or ;
          * logic_or      -> logic_and ( "or" logic_and )* ;
          * logic_and     -> equality ( "and" equality )* ;
@@ -43,7 +45,7 @@ namespace CSLox
          * term          -> factor ( ( "-" | "+" ) factor )* ;
          * factor        -> unary ( ( "/" | "*" ) unary )* ;
          * unary         -> ( "!" | "-" ) unary | call ;
-         * call          -> primary ( "(" arguments? ") )* ;
+         * call          -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
          * primary       -> "true" | "false" | "nil"
          *                | NUMBER | STRING
          *                | "(" expression ")"
@@ -82,13 +84,15 @@ namespace CSLox
             return statements;
         }
 
-        // declaration   -> funDecl
+        // declaration   -> classDecl
+        //                | funDecl
         //                | varDecl
         //                | statement ;
         private Stmt Declaration()
         {
             try
             {
+                if (Match(TokenType.CLASS)) return ClassDeclaration();
                 if (Match(TokenType.FUN)) return Function("function");
                 if (Match(TokenType.VAR)) return VarDeclaration();
 
@@ -101,9 +105,27 @@ namespace CSLox
             }
         }
 
+        // classDecl     -> "class" IDENTIFIER "{" function* "}" ;
+        private Stmt ClassDeclaration()
+        {
+            var name = Consume(TokenType.IDENTIFIER, "Expected class name.");
+            Consume(TokenType.LEFT_BRACE, "Expected '{' before class body.");
+
+            var methods = new List<Stmt.Function>();
+
+            while (!Check(TokenType.RIGHT_BRACE) && !IsAtEnd)
+            {
+                methods.Add(Function("method"));
+            }
+
+            Consume(TokenType.RIGHT_BRACE, "Expected '}' after class body.");
+
+            return new Stmt.Class(name, methods);
+        }
+
         // funDecl       -> "fun" function ;
         // function      -> IDENTIFIER "(" parameters? ")" block ;
-        private Stmt Function(string kind)
+        private Stmt.Function Function(string kind)
         {
             var name = Consume(TokenType.IDENTIFIER, $"Expected {kind} name.");
             Consume(TokenType.LEFT_PAREN, $"Expected '(' after {kind} name.");
@@ -301,7 +323,7 @@ namespace CSLox
             return Assignment();
         }
 
-        // assignment    -> IDENTIFIER "=" assignment
+        // assignment    ->  ( call "." )? IDENTIFIER "=" assignment
         //                | logic_or ;
         private Expr Assignment()
         {
@@ -314,8 +336,11 @@ namespace CSLox
 
                 if (expr is Expr.Variable variable)
                 {
-                    Token name = variable.name;
-                    return new Expr.Assign(name, value);
+                    return new Expr.Assign(variable.name, value);
+                }
+                else if (expr is Expr.Get get)
+                {
+                    return new Expr.Set(get.obj, get.name, value);
                 }
 
                 Error(equals, "Invalid assignment target.");
@@ -429,7 +454,7 @@ namespace CSLox
             return Call();
         }
 
-        // call          -> primary( "(" arguments? ") )* ;
+        // call          -> primary( "(" arguments? ")" | "." IDENTIFIER )* ;
         private Expr Call()
         {
             Expr expr = Primary();
@@ -439,6 +464,11 @@ namespace CSLox
                 if (Match(TokenType.LEFT_PAREN))
                 {
                     expr = FinishCall(expr);
+                }
+                else if (Match(TokenType.DOT))
+                {
+                    var name = Consume(TokenType.IDENTIFIER, "Expected property name after '.'.");
+                    expr = new Expr.Get(expr, name);
                 }
                 else
                 {
@@ -481,6 +511,8 @@ namespace CSLox
             if (Match(TokenType.NIL)) return new Expr.Literal(null);
 
             if (Match(TokenType.NUMBER, TokenType.STRING)) return new Expr.Literal(Previous().Literal);
+
+            if (Match(TokenType.THIS)) return new Expr.This(Previous());
 
             if (Match(TokenType.IDENTIFIER)) return new Expr.Variable(Previous());
 
