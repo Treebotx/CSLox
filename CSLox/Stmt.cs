@@ -34,9 +34,10 @@ namespace CSLox
 
 		public class Class : Stmt
 		{
-			public Class ( Token name, IList<Stmt.Function> methods )
+			public Class ( Token name, Expr.Variable superClass, IList<Stmt.Function> methods )
 			{
 				this.name = name;
+				this.superClass = superClass;
 				this.methods = methods;
 			}
 
@@ -46,6 +47,7 @@ namespace CSLox
 			}
 
 			public Token name;
+			public Expr.Variable superClass;
 			public IList<Stmt.Function> methods;
 		}
 

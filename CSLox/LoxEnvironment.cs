@@ -5,16 +5,16 @@ namespace CSLox
     public class LoxEnvironment
     {
         private IDictionary<string, object> _values = new Dictionary<string, object>();
-        private LoxEnvironment _enclosing = null;
+        public LoxEnvironment Enclosing { get; private set; } = null;
 
         public LoxEnvironment()
         {
-            _enclosing = null;
+            Enclosing = null;
         }
 
         public LoxEnvironment(LoxEnvironment enclosing)
         {
-            _enclosing = enclosing;
+            Enclosing = enclosing;
         }
 
         public void Define(string name, object value)
@@ -31,9 +31,9 @@ namespace CSLox
                 return;
             }
 
-            if (_enclosing != null)
+            if (Enclosing != null)
             {
-                _enclosing.Assign(name, value);
+                Enclosing.Assign(name, value);
                 return;
             }
 
@@ -52,7 +52,7 @@ namespace CSLox
                 return value;
             }
 
-            if (_enclosing != null) return _enclosing.Get(name);
+            if (Enclosing != null) return Enclosing.Get(name);
 
             throw new LoxRuntimeErrorException(name, $"Undefined variable {name.Lexeme}.");
         }
@@ -67,7 +67,7 @@ namespace CSLox
             var environment = this;
             for (var i = 0; i < distance; i++)
             {
-                environment = environment._enclosing;
+                environment = environment.Enclosing;
             }
 
             return environment;

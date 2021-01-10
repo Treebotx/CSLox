@@ -13,7 +13,8 @@ namespace CSLox
         private enum ClassType
         {
             NONE,
-            CLASS
+            CLASS,
+            SUBCLASS
         }
 
         private ClassType _currentClass = ClassType.NONE;
@@ -47,6 +48,24 @@ namespace CSLox
             Declare(stmt.name);
             Define(stmt.name);
 
+            if ((stmt.superClass != null) &&
+                stmt.name.Lexeme.Equals(stmt.superClass.name.Lexeme))
+            {
+                _errorReporter.Error(stmt.superClass.name, "A class cannot inherit from itself.");
+            }
+
+            if (stmt.superClass != null)
+            {
+                _currentClass = ClassType.SUBCLASS;
+                Resolve(stmt.superClass);
+            }
+
+            if (stmt.superClass != null)
+            {
+                BeginScope();
+                _scopes.Peek()["super"] = VarInitilized.IS_INITILIZED;
+            }
+
             BeginScope();
 
             _scopes.Peek()["this"] = VarInitilized.IS_INITILIZED;
@@ -59,6 +78,8 @@ namespace CSLox
             }
 
             EndScope();
+
+            if (stmt.superClass != null) EndScope();
 
             _currentClass = enclosingClass;
 
@@ -202,6 +223,16 @@ namespace CSLox
         {
             Resolve(expr.value);
             Resolve(expr.obj);
+
+            return null;
+        }
+
+        public object VisitSuperExpr(Expr.Super expr)
+        {
+            if (_currentClass == ClassType.NONE) _errorReporter.Error(expr.keyword, "Cannot use 'super' outside of a class.");
+            else if (_currentClass != ClassType.SUBCLASS)
+                _errorReporter.Error(expr.keyword, "Cannot use 'super' in a class with no superclass.");
+            ResolveLocal(expr, expr.keyword);
 
             return null;
         }

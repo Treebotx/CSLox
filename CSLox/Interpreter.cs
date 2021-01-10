@@ -151,6 +151,19 @@ namespace CSLox
             return value;
         }
 
+        public object VisitSuperExpr(Expr.Super expr)
+        {
+            var distance = _locals[expr];
+            var superClass = _environment.GetAt(distance, "super") as LoxClass;
+            var obj = _environment.GetAt(distance - 1, "this") as LoxInstance;
+
+            var method = superClass.FindMethod(expr.method.Lexeme);
+
+            if (method is null) throw new LoxRuntimeErrorException(expr.method, $"Undefined property '{expr.method.Lexeme}'.");
+
+            return method.Bind(obj);
+        }
+
         public object VisitThisExpr(Expr.This expr)
         {
             return LookUpVariable(expr.keyword, expr);
@@ -268,7 +281,23 @@ namespace CSLox
 
         public object VisitClassStmt(Stmt.Class stmt)
         {
+            object superClass = null;
+            if (stmt.superClass != null)
+            {
+                superClass = Evaluate(stmt.superClass);
+                if (!(superClass is LoxClass))
+                {
+                    throw new LoxRuntimeErrorException(stmt.superClass.name, "Superclass must be a class.");
+                }
+            }
+
             _environment.Define(stmt.name.Lexeme, null);
+
+            if (stmt.superClass != null)
+            {
+                _environment = new LoxEnvironment(_environment);
+                _environment.Define("super", superClass);
+            }
 
             var methods = new Dictionary<string, LoxFunction>();
             foreach (var method in stmt.methods)
@@ -279,7 +308,9 @@ namespace CSLox
                 methods[method.name.Lexeme] = new LoxFunction(method, _environment, functionType);
             }
 
-            var loxClass = new LoxClass(stmt.name.Lexeme, methods);
+            var loxClass = new LoxClass(stmt.name.Lexeme, superClass as LoxClass, methods);
+
+            if (superClass != null) _environment = _environment.Enclosing;
             _environment.Assign(stmt.name, loxClass);
 
             return null;

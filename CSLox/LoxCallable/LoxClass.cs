@@ -7,6 +7,7 @@ namespace CSLox
         public string Name { get; }
 
         private readonly Dictionary<string, LoxFunction> _methods;
+        private readonly LoxClass _superClass;
 
         public int Arity
         {
@@ -18,10 +19,11 @@ namespace CSLox
             }
         }
 
-        public LoxClass(string name, Dictionary<string, LoxFunction> methods)
+        public LoxClass(string name, LoxClass superClass, Dictionary<string, LoxFunction> methods)
         {
             Name = name;
             _methods = methods;
+            _superClass = superClass;
         }
 
         public object Call(Interpreter interpreter, IList<object> arguments)
@@ -40,6 +42,8 @@ namespace CSLox
         public LoxFunction FindMethod(string name)
         {
             if (_methods.TryGetValue(name, out var loxFunction)) return loxFunction;
+
+            if (_superClass != null) return _superClass.FindMethod(name);
 
             return null;
         }

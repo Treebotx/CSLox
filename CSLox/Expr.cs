@@ -11,6 +11,7 @@ namespace CSLox
 			R VisitCallExpr ( Call expr );
 			R VisitGetExpr ( Get expr );
 			R VisitSetExpr ( Set expr );
+			R VisitSuperExpr ( Super expr );
 			R VisitThisExpr ( This expr );
 			R VisitGroupingExpr ( Grouping expr );
 			R VisitLiteralExpr ( Literal expr );
@@ -108,6 +109,23 @@ namespace CSLox
 			public Expr obj;
 			public Token name;
 			public Expr value;
+		}
+
+		public class Super : Expr
+		{
+			public Super ( Token keyword, Token method )
+			{
+				this.keyword = keyword;
+				this.method = method;
+			}
+
+			public override R Accept<R>(IVisitor<R> visitor)
+			{
+				return visitor.VisitSuperExpr(this);
+			}
+
+			public Token keyword;
+			public Token method;
 		}
 
 		public class This : Expr

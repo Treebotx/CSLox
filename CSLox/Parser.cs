@@ -11,7 +11,8 @@ namespace CSLox
          *                | funDecl
          *                | varDecl
          *                | statement ;
-         * classDecl     -> "class" IDENTIFIER "{" function* "}" ;
+         * classDecl     -> "class" IDENTIFIER ( "<" IDENTIFIER)?
+         *                  "{" function* "}" ;
          * funDecl       -> "fun" function ;
          * function      -> IDENTIFIER "(" parameters? ")" block ;
          * parameters    -> IDENTIFIER ( "," IDENTIFIER )* ;
@@ -46,10 +47,9 @@ namespace CSLox
          * factor        -> unary ( ( "/" | "*" ) unary )* ;
          * unary         -> ( "!" | "-" ) unary | call ;
          * call          -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
-         * primary       -> "true" | "false" | "nil"
-         *                | NUMBER | STRING
-         *                | "(" expression ")"
-         *                | IDENTIFIER ;
+         * primary       -> "true" | "false" | "nil" | "this"
+         *                | NUMBER | STRING | IDENTIFIER | "(" expression ")"
+         *                | "super" "." IDENTIFIER ;
          */
 
         private List<Token> _tokens;
@@ -105,10 +105,19 @@ namespace CSLox
             }
         }
 
-        // classDecl     -> "class" IDENTIFIER "{" function* "}" ;
+        // classDecl     -> "class" IDENTIFIER( "<" IDENTIFIER)?
+        //                  "{" function* "}" ;
         private Stmt ClassDeclaration()
         {
             var name = Consume(TokenType.IDENTIFIER, "Expected class name.");
+
+            Expr.Variable superClass = null;
+            if (Match(TokenType.LESS))
+            {
+                Consume(TokenType.IDENTIFIER, "Expected superclass name.");
+                superClass = new Expr.Variable(Previous());
+            }
+
             Consume(TokenType.LEFT_BRACE, "Expected '{' before class body.");
 
             var methods = new List<Stmt.Function>();
@@ -120,7 +129,7 @@ namespace CSLox
 
             Consume(TokenType.RIGHT_BRACE, "Expected '}' after class body.");
 
-            return new Stmt.Class(name, methods);
+            return new Stmt.Class(name, superClass, methods);
         }
 
         // funDecl       -> "fun" function ;
@@ -500,10 +509,9 @@ namespace CSLox
             return new Expr.Call(callee, paren, arguments);
         }
 
-        // primary       -> "true" | "false" | "nil"
-        //                | NUMBER | STRING
-        //                | "(" expression ")"
-        //                | IDENTIFIER ;
+        // primary       -> "true" | "false" | "nil" | "this"
+        //                | NUMBER | STRING | IDENTIFIER | "(" expression ")"
+        //                | "super" "." IDENTIFIER ;
         private Expr Primary()
         {
             if (Match(TokenType.FALSE)) return new Expr.Literal(false);
@@ -511,6 +519,14 @@ namespace CSLox
             if (Match(TokenType.NIL)) return new Expr.Literal(null);
 
             if (Match(TokenType.NUMBER, TokenType.STRING)) return new Expr.Literal(Previous().Literal);
+
+            if (Match(TokenType.SUPER))
+            {
+                var keyword = Previous();
+                Consume(TokenType.DOT, "Expected '.' after 'super'.");
+                var method = Consume(TokenType.IDENTIFIER, "Expected superclass method name.");
+                return new Expr.Super(keyword, method);
+            }
 
             if (Match(TokenType.THIS)) return new Expr.This(Previous());
 

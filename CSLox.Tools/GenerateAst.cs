@@ -23,6 +23,7 @@ namespace CSLox.Tools
                 "Call     : Expr callee, Token paren, IList<Expr> arguments",
                 "Get      : Expr obj, Token name",
                 "Set      : Expr obj, Token name, Expr value",
+                "Super    : Token keyword, Token method",
                 "This     : Token keyword",
                 "Grouping : Expr expression",
                 "Literal  : object value",
@@ -34,7 +35,9 @@ namespace CSLox.Tools
             DefineAst(outputDir, "Stmt", new List<string>
             {
                 "Block      : IList<Stmt> statements",
-                "Class      : Token name, IList<Stmt.Function> methods",
+                "Class      : Token name, " + 
+                             "Expr.Variable superClass, " +
+                             "IList<Stmt.Function> methods",
                 "Function   : Token name, IList<Token> parameters," +
                             " IList<Stmt> body",
                 "If         : Expr condition, Stmt thenBranch," +
